@@ -26,17 +26,26 @@ WHERE EXISTS(
 );
 
 -- Get the first and last detections
-(SELECT recv_ID, TagCode, DateTime_PST
+SELECT recv_ID, TagCode, DateTime_PST, 
+    ROW_NUMBER() OVER (PARTITION BY TagCode ORDER BY DateTime_PST DESC) as rn1,
+    ROW_NUMBER() OVER (PARTITION BY TagCode ORDER BY DateTime_PST ASC) as rn2
+INTO #tmp_table4
 FROM #tmp_table3
-ORDER BY DateTime_PST
-LIMIT 100)
 
+SELECT recv_ID, TagCode, DateTime_PST, rn1, rn2
+INTO #tmp_table5
+FROM #tmp_table4
+WHERE (rn1 > 100 AND rn2 > 100)
 
+-- Drop temporary tables
 DROP TABLE #tmp_table1;
 DROP TABLE #tmp_table2;
 DROP TABLE #tmp_table3;
+DROP TABLE #tmp_table4;
+DROP TABLE #tmp_table5;
 
 -- TEMPORARY CODE TO BE DELETED
+SELECT * FROM #tmp_table4;
 SELECT recv_ID, TagCode, DateTime_PST FROM #tmp_table3 ORDER BY TagCode, DateTime_PST;
 SELECT COUNT(DISTINCT TagCode) FROM #tmp_table2; --42
 
