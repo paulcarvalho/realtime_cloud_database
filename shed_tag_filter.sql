@@ -18,9 +18,35 @@ WHERE (n > 20000 AND days > 20); -- only get tagcode + general location when the
     -- should remove #tmp_table1 here
 
 -- 2. Record information for shed tags identified in step 1.
-INSERT INTO shed_tags(TagCode, general_location, n, max, min, days)
+INSERT INTO shed_tags (TagCode, general_location, n, max, min, days)
 SELECT TagCode, general_location, n, max, min, days
-FROM #tmp_table2;
+FROM #tmp_table2
+WHERE NOT EXISTS(
+    SELECT 1
+    FROM shed_tags
+    WHERE shed_tags.TagCode = #tmp_table2.TagCode
+    AND shed_tags.general_location = #tmp_table2.general_location
+    AND shed_tags.n = #tmp_table2.n
+    AND shed_tags.max = #tmp_table2.[max]
+)
+
+
+BEGIN TRANSACTION
+INSERT INTO receivers (location, recv, general_location, latitude, longitude, rkm)
+SELECT DISTINCT location, recv, general_location, latitude, longitude, rkm
+FROM stage_detects
+WHERE NOT EXISTS(
+    SELECT 1
+    FROM receivers
+    WHERE receivers.recv = stage_detects.recv 
+    AND receivers.location = stage_detects.location
+    AND receivers.general_location = stage_detects.general_location
+    AND receivers.latitude = stage_detects.latitude
+    AND receivers.longitude = stage_detects.longitude
+    AND receivers.rkm = stage_detects.rkm
+)
+OPTION(USE HINT('ENABLE_PARALLEL_PLAN_PREFERENCE'))
+COMMIT TRANSACTION;
 
 -- 3. Get all of the detections for shed tags identified in #tmp_table2 and insert into a temporary table
 SELECT recv_ID, TagCode, general_location, DateTime_PST
